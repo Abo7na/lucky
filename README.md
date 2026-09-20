@@ -2,13 +2,18 @@
 
 Modular Arabic-first Telegram lottery and entertainment bot.
 
-## Run
-```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-python main.py
-```
+Admin commands:
+- `/stats` dashboard counts.
+- `/pending` list deposit/withdrawal requests.
+- `/approve_deposit ID` and `/reject_deposit ID`.
+- `/approve_withdraw ID` and `/reject_withdraw ID`.
+- `/draw` close the active lottery and choose winners from individual ticket rows.
+- `/ledger` inspect recent balance transactions.
+- `/backup` create a WAL-safe database backup.
 
-Set `BOT_TOKEN` and comma-separated `ADMIN_IDS`. The wallet uses SQLite transactions and a ledger. Keep `TEST_MODE=true` until all flows are manually tested. Never commit `.env` or a production database.
+Run tests before deployment:
+```bash
+python -m compileall -q .
+python -m unittest discover -s tests -v
+```
+Keep `TEST_MODE=true` until every financial flow is manually tested with a test account.
