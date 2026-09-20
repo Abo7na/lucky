@@ -4,12 +4,10 @@ from config import DATABASE_PATH
 
 @contextmanager
 def connection():
-    conn = sqlite3.connect(DATABASE_PATH, timeout=20, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA journal_mode=WAL")
-    try: yield conn
-    finally: conn.close()
+    db=sqlite3.connect(DATABASE_PATH,timeout=20,isolation_level=None)
+    db.row_factory=sqlite3.Row; db.execute('PRAGMA foreign_keys=ON'); db.execute('PRAGMA journal_mode=WAL')
+    try: yield db
+    finally: db.close()
 
 def init_db():
     with connection() as db:
@@ -23,17 +21,19 @@ def init_db():
         CREATE TABLE IF NOT EXISTS tickets(id INTEGER PRIMARY KEY AUTOINCREMENT,round_id INTEGER NOT NULL REFERENCES rounds(id),user_id INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS winners(id INTEGER PRIMARY KEY AUTOINCREMENT,round_id INTEGER NOT NULL,ticket_id INTEGER NOT NULL,user_id INTEGER NOT NULL,place INTEGER NOT NULL,prize INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(round_id,place));
         CREATE TABLE IF NOT EXISTS games(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,game TEXT NOT NULL,cost INTEGER NOT NULL,reward INTEGER NOT NULL,won INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS wheel_spins(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,prize INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS deposit_requests(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,amount INTEGER NOT NULL,method TEXT NOT NULL,proof TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,decided_at TEXT);
         CREATE TABLE IF NOT EXISTS withdrawal_requests(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,amount INTEGER NOT NULL,method TEXT NOT NULL,account TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,decided_at TEXT);
-        CREATE INDEX IF NOT EXISTS tickets_round_idx ON tickets(round_id); CREATE INDEX IF NOT EXISTS ledger_user_idx ON ledger(user_id,created_at);
+        CREATE INDEX IF NOT EXISTS tickets_round_idx ON tickets(round_id); CREATE INDEX IF NOT EXISTS ledger_user_idx ON ledger(user_id,created_at); CREATE INDEX IF NOT EXISTS wheel_user_idx ON wheel_spins(user_id,created_at);
         CREATE UNIQUE INDEX IF NOT EXISTS pending_withdrawal_user_idx ON withdrawal_requests(user_id) WHERE status='pending'; CREATE UNIQUE INDEX IF NOT EXISTS pending_deposit_proof_idx ON deposit_requests(proof) WHERE status='pending';
-        INSERT OR IGNORE INTO settings(key,value) VALUES('game_cost','50'),('game_reward','120'),('game_chance','40'),('min_withdraw','10000');
+        INSERT OR IGNORE INTO settings(key,value) VALUES('game_cost','50'),('game_reward','120'),('game_chance','40'),('min_withdraw','10000'),('referral_reward','200'),('wheel_prizes','25,50,100,250,500,1000');
         INSERT INTO rounds(ticket_price,prizes) SELECT 100,'5000,3000,1500' WHERE NOT EXISTS(SELECT 1 FROM rounds WHERE status='active');
         ''')
 
 def user(user_id,username=None,first_name=None):
     with connection() as db:
-        db.execute("INSERT INTO users(user_id,username,first_name) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name",(user_id,username,first_name)); return db.execute("SELECT * FROM users WHERE user_id=?",(user_id,)).fetchone()
+        db.execute("INSERT INTO users(user_id,username,first_name) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,first_name=excluded.first_name",(user_id,username,first_name))
+        return db.execute("SELECT * FROM users WHERE user_id=?",(user_id,)).fetchone()
 
 def setting(key,default=None):
     with connection() as db:
